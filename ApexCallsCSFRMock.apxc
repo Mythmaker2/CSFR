@@ -1,0 +1,313 @@
+@isTest
+global class AppexCallsCSFRMock implements HttpCalloutMock {
+    
+    global HTTPResponse respond (HTTPRequest request){
+        
+        string XmlResponse;
+        
+        System.assertEquals('https://www.creditsafe.fr/getdata/service/XXXX.asmx', request.getEndpoint());
+        System.assertEquals('POST', request.getMethod());
+        system.assertEquals('text/xml', request.getHeader('Content-Type'));
+        
+        //Create a fake response
+        HttpResponse response = new HttpResponse();
+        response.setHeader('Content-Type', 'text/xml');
+        XmlStreamWriter writer = new XmlStreamWriter();
+        
+        writer.writeStartDocument('utf-8','1.0');
+        
+        writer.writeStartElement(null, 'xmlrequest',null);
+        
+        writer.writeStartElement(null,'name',null);
+   		writer.writeCharacters('XXXXX');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null,'number',null);
+        writer.writeCharacters('XXXX');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null,'activitycode',null);
+        writer.writeCharacters('XXXX');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null,'telephone',null);
+        writer.writeCharacters('XXXXX');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'postcode', null);
+        writer.writeCharacters('XXXXXX');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'address', null);
+        writer.writeCharacters('XXXXXXX');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_A1', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_BJ3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_BV3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_BX3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_BZ3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_CF3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_CD3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_CJ3', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DL', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DM', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DS', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DT', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DU', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DW', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DX', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DV', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DY', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_DZ', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_EA', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_EB', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_EI', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FC', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FF', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FI', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FJ', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FK', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FL', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FM', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FP', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FN', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FR', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FS', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FT', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FU', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FV', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FW', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FX', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FY', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_FZ', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GA', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GB', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GC', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GD', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GF', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GG', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GP', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GR', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_GU', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HD', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HH', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HJ', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HK', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HN', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HP', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_HQ', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_YP', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_YQ', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_YR', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'code_YT', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'stocks', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'status', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();
+        
+        writer.writeStartElement(null, 'activitydescription', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();        
+        
+        writer.writeStartElement(null, 'legalform', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();        
+        
+/*        writer.writeStartElement(null, 'code', null);
+        writer.writeCharacters('22');
+        writer.writeEndElement();*/
+        
+        writer.writeEndElement();
+ 
+   
+        
+        XmlResponse = writer.getXmlString();
+        
+        
+        response.setBody(XmlResponse);
+        response.setStatusCode(200);
+        return response;
+    }     
+
+}
