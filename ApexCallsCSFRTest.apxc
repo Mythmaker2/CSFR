@@ -1,0 +1,46 @@
+@isTest
+private class TestApexCallsCSFR {
+    
+    @isTest static void ApexCallsCSFRTest (){
+        
+        Test.setMock(HttpcalloutMock.class, new AppexCallsCSFRMock());
+        
+		string identite;
+        string siren = 'XXXXX';
+        string civilite = 'XXXX';
+        string suiviCAC = 'XXXX';
+        string dureeRemboursement = 'XXXX';
+        string numberExComptable = 'XXXXX';
+        string projet = 'XXXXX';
+        string projetDetail = 'XXXXX';
+        string besoinAffacturage = 'XXXXXX';
+        string possessionPartsSociales = 'XXXXX';
+        string signatureLOI = 'XXXXXXX';
+        string millisec = 'XXXX';
+        
+        
+        Lead newLead = new Lead(Email = 'XXXXXXXX', Civilit__c = 'XXXXXX', Mail__c = 'XXXXX', LastName = 'XXXXX', SIREN__c = 'XXXXX', Status = 'XXXXX', Company ='XXXXXX' );
+		try{
+    	insert newLead;
+    	system.debug('Ok');
+		} catch (Exception e){
+    	system.debug('error');
+		}    
+
+         
+        Lead[] piste = [Select id from Lead where Lead.SIREN__c = 'XXXXXX' LIMIT 1];
+        
+        
+        identite = piste[0].id;
+        
+        List<List<string>> info = new List<List<string>>{new List<string>{siren, identite, civilite, suiviCAC, dureeRemboursement, numberExComptable, projet, projetDetail, besoinAffacturage,
+            											 possessionPartsSociales, signatureLOI, millisec}};
+
+        
+        Test.startTest();
+        ApexCallsCSFR.AppelCSFR(info);
+        Test.stopTest();
+
+    } 
+
+}
