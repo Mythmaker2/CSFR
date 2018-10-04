@@ -1,0 +1,1064 @@
+global class ApexCallsCSFR { 
+   
+    //Process est la variable d'erreur que nous retourn le code Apex :
+    //process = 0 --> pas d'erreur
+    //process = -1 --> Systeme dans un etat futur ou batch --> Ne rentre meme pas dans la fonction
+    //process = 1 --> Piste non updatée
+    //process = 2 --> erreur survenue lors de l'envoi /réception de la réponse (en dehors code 200) (1er appel CSFR)
+    //process = 3 --> code retour != 200 (1er appel CSFR)
+    //process = 4 --> erreur survenue lors de l'envoi /réception de la réponse (en dehors code 200) (2eme appel CSFR)
+    //process = 5 --> code retour != 200 (2eme appel CSFR)
+    //process = 6 --> Code erreur retournée par CSFR (1er appel)
+    //process = 7 --> code erreur retournée par CSFR (2e appel)
+    
+    
+	@InvocableMethod
+    global static list<integer> AppelCSFR(List<List<string>> info)
+    	{ 
+			List<integer> processDone = new list<integer>(); // List qui contient la variable de retour
+            
+            Integer process = 0; //Variable de retour
+			
+            //On récupère les données du flow qu'une met dans un liste 
+            string siren = info[0][0];
+            string identite = info[0][1];
+
+            List<string> newList = new List<string>();
+
+            newList.add(siren);
+            newList.add(identite);
+            
+
+		//Ecriture de la 1ere requete
+        	Xmlstreamwriter FirstRequest = new Xmlstreamwriter();
+            
+           	 FirstRequest.writeStartElement(null, 'xmlrequest',null);
+           		 FirstRequest.writeStartElement(null,'header',null);
+           			 FirstRequest.writeStartElement(null,'username',null);
+          			 FirstRequest.writeCharacters('XXXXX');
+           			 FirstRequest.writeEndElement();
+                	 FirstRequest.writeStartElement(null,'password',null);
+           			 FirstRequest.writeCharacters('XXXXX');
+           			 FirstRequest.writeEndElement();
+          			 FirstRequest.writeStartElement(null,'operation',null);
+         		   	 FirstRequest.writeCharacters('companysearch'); // Faire le form pour la deuxième opération
+            		 FirstRequest.writeEndElement();
+            		 FirstRequest.writeStartElement(null,'language',null);
+            		 FirstRequest.writeCharacters('FR');
+            		 FirstRequest.writeEndElement();
+            		 FirstRequest.writeStartElement(null,'country',null);
+            		 FirstRequest.writeCharacters('FR');
+            		 FirstRequest.writeEndElement();
+            		 FirstRequest.writeStartElement(null,'chargereference',null);
+            		 FirstRequest.writeEndElement();
+            	FirstRequest.writeEndElement();
+            	FirstRequest.writeStartElement(null,'body',null);
+            		FirstRequest.writeStartElement(null,'package',null);
+            		FirstRequest.writeCharacters('standard');
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'companynumber',null);
+            		FirstRequest.writeCharacters(info[0][0]); //Doit pouvoir changer
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'name', null);
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeComment('valeurs possibles=(begin|contain|exact)');
+					FirstRequest.writeStartElement(null, 'namesearchmode',null);
+            		FirstRequest.writeCharacters('contain');
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'address', null);
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeComment('valeurs possibles=(begin|contain|exact)');
+            		FirstRequest.writeStartElement(null, 'addresssearchmode', null);
+            		FirstRequest.writeCharacters('contain');
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'postcode', null);
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'telephone',null);	
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'startposition', null);	//Correspond au siège ou autre
+            		FirstRequest.writeCharacters('1'); // (1 correspond au siège social)
+            		FirstRequest.writeEndElement();
+            		FirstRequest.writeStartElement(null, 'pagesize', null);	//Correspond au nombre d'enregistrement demandé
+            		FirstRequest.writeCharacters('1');
+            		FirstRequest.writeEndElement();
+            	FirstRequest.writeEndElement();
+            FirstRequest.writeEndElement();
+            string xmlFirstRequest = FirstRequest.getXmlString(); 
+            FirstRequest.close();
+
+       
+            XmlStreamWriter envelopeFirstRequest = new XmlStreamWriter();
+            
+            envelopeFirstRequest.writeStartDocument('utf-8','1.0');
+            envelopeFirstRequest.writeStartElement('soap','Envelope','xmlns');
+            envelopeFirstRequest.WriteNamespace('xsi','http://www.w3.org/2001/XMLSchema-instance');
+            envelopeFirstRequest.WriteNamespace('xsd','http://www.w3.org/2001/XMLSchema');
+            envelopeFirstRequest.writeAttribute('xmlns', 'http://schemas.xmlsoap.org/soap/envelope/', 'soap', 'http://schemas.xmlsoap.org/soap/envelope/');
+            envelopeFirstRequest.writeStartElement('soap','Body','http://schemas.xmlsoap.org/soap/envelope/');
+            envelopeFirstRequest.writeStartElement(null,'GetData',null);
+            envelopeFirstRequest.writeNamespace('xmlns','https://www.creditsafe.com/');
+            envelopeFirstRequest.writeStartElement(null,'requestXmlStr',null);
+            envelopeFirstRequest.writeCharacters(xmlFirstRequest);
+            envelopeFirstRequest.WriteEndElement();
+            envelopeFirstRequest.WriteEndElement();
+            envelopeFirstRequest.WriteEndElement();
+            envelopeFirstRequest.writeEndElement();
+			string XmlForm1 = envelopeFirstRequest.getXmlString();
+            envelopeFirstRequest.close();
+             
+            
+            if(System.IsBatch() == false && System.isFuture() == false){  
+    			process = SendRequest(XmlForm1, newList);
+            }
+            
+            else{
+                system.debug('ERROR : L\'envoi de la première requête a échoué');
+                process = -1;
+            } 
+
+    
+            
+            processDone.add(process);
+            return processDone;
+  }
+       
+              
+    
+    global static Integer SendRequest(string XmlForm1, list<string> newList){ 
+           
+        Integer process = 0; //Variable d'erreur à retourner
+        
+            string dataFirstRequest = null;
+            string companyName = null;
+            string siret = null;
+        	string activitycode = null;
+        	string telephone = null;
+        	string postcode = null;
+        	string address = null;
+        	string errorFirstRequest = null;
+        	string reporttype1 = '0';
+        
+
+            Http httpFirstRequest = new http();
+            HttpRequest request1 = new HttpRequest();        
+  			HttpResponse res1 = new HttpResponse();
+
+            try{
+
+            request1.setEndpoint('https://www.creditsafe.fr/getdata/service/CSFRServices.asmx');
+            request1.setHeader('Content-Type','text/xml');
+
+            request1.setMethod('POST');
+            request1.setBody(XmlForm1);
+            request1.setTimeout(60000);
+        
+            res1 = httpFirstRequest.send(request1);}
+              
+        catch (exception FirstRequestFail)
+            {
+                system.debug('Une erreur est survenue lors de la récupération de la réponse API (1er ping).');
+                process = 2;
+                return process;
+            }
+                
+        if(res1.getStatusCode() == 200){
+            string xmlString1 = res1.getBody();
+
+            string xmlDecode1 = xmlString1.unescapeXml();
+            system.debug(xmlDecode1);
+      
+
+            
+            //DECODAGE DE LA REPONSE
+                    
+  			XmlStreamReader reader = new XmlStreamReader(xmlDecode1);
+            
+            boolean SafeToGoNextElement = true;
+            while(SafeToGoNextElement) {
+                
+                if(reader.getEventType() == XMLTag.START_ELEMENT){
+                	
+                    if(reader.getLocalName() == 'name'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        companyName = dataFirstRequest;}
+                    
+                    
+                    if(reader.getLocalName() == 'number'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        siret = dataFirstRequest;}
+                    
+                    
+                    if(reader.getLocalName() == 'activitycode'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        activitycode = dataFirstRequest;}
+                    
+                    
+                    if(reader.getLocalName() == 'telephone'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        telephone = dataFirstRequest;}
+                    
+                    
+                    if(reader.getLocalName() == 'postcode'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        postcode = dataFirstRequest;}
+                    
+                    
+                    if(reader.getLocalName() == 'address'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        address = dataFirstRequest;}
+                    
+                    
+                    // AU CAS OU ERREUR
+                    if(reader.getLocalName() == 'code'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        errorFirstRequest = dataFirstRequest;}
+                    
+                    
+                    if(reader.getLocalName() == 'reporttype'){
+                        dataFirstRequest = ParsingXML2(reader);
+                        reporttype1 = dataFirstRequest;}
+                    
+                    
+                    
+                    
+                } // If XMLTAG.start_element
+                
+                
+                if (reader.hasNext()) {
+                    reader.next();
+                } else {
+                    SafeToGoNextElement = false;
+                    break;
+                }
+            }	// Fin du while
+        
+        	if(string.isNotEmpty(errorFirstRequest))
+            {
+                system.debug('ERROR : Une erreur a été renvoyé lors de le réception de la réponse de la première requete XML. Code erreur : ' + errorFirstRequest);
+                process = 6;
+                return process;
+            }
+            
+            boolean resultReporttype1 = false;
+            resultReporttype1 = reporttype1.contains('Error');
+            
+            if(resultReporttype1 == true)
+            {
+                system.debug('ERROR : Une erreur a été renvoyé lors de le réception de la réponse de la première requete XML. Code erreur : ' + errorFirstRequest);
+                process = 6;
+                return process;
+            }
+            
+            if (siret == null){
+                system.debug('SIRET PAS TROUVE');
+                process = 6;
+                return process;
+            }
+            
+            
+            
+        }//IF get status code premiere requete
+        
+        else{system.debug('Erreur lors de la connexion à CSFR (premiere requete)');
+            process = 3;
+            return process;}            
+            //ECRITURE DE LA DEUXIEME REQUETE
+
+            Xmlstreamwriter SecondRequest = new Xmlstreamwriter();
+    
+             SecondRequest.writeStartElement(null, 'xmlrequest',null);
+                 SecondRequest.writeStartElement(null,'header',null);
+                     SecondRequest.writeStartElement(null,'username',null);
+                     SecondRequest.writeCharacters('XXXXX');
+                     SecondRequest.writeEndElement();
+                     SecondRequest.writeStartElement(null,'password',null);
+                     SecondRequest.writeCharacters('XXXXX');
+                     SecondRequest.writeEndElement();
+                     SecondRequest.writeStartElement(null,'operation',null);
+                     SecondRequest.writeCharacters('getcompanyinformation'); // Faire le form pour la deuxième opération
+                     SecondRequest.writeEndElement();
+                     SecondRequest.writeStartElement(null,'language',null);
+                     SecondRequest.writeCharacters('FR');
+                     SecondRequest.writeEndElement();
+                     SecondRequest.writeStartElement(null,'country',null);
+                     SecondRequest.writeCharacters('FR');
+                     SecondRequest.writeEndElement();
+                     SecondRequest.writeStartElement(null,'chargereference',null);
+                     SecondRequest.writeEndElement();
+                SecondRequest.writeEndElement();
+                SecondRequest.writeStartElement(null,'body',null);
+                    SecondRequest.writeStartElement(null,'package',null);
+                    SecondRequest.writeCharacters('standard');
+                    SecondRequest.writeEndElement();
+                    SecondRequest.writeStartElement(null, 'companynumber',null);
+                    SecondRequest.writeCharacters(siret); //Doit pouvoir changer
+                    SecondRequest.writeEndElement();   
+                    SecondRequest.writeEndElement();
+                SecondRequest.writeEndElement();
+                string xmlSecondRequest = SecondRequest.getXmlString(); 
+                SecondRequest.close();
+        
+        
+            XmlStreamWriter envelopeSecondRequest = new XmlStreamWriter();
+            
+            envelopeSecondRequest.writeStartDocument('utf-8','1.0');
+            envelopeSecondRequest.writeStartElement('soap','Envelope','xmlns');
+            envelopeSecondRequest.WriteNamespace('xsi','http://www.w3.org/2001/XMLSchema-instance');
+            envelopeSecondRequest.WriteNamespace('xsd','http://www.w3.org/2001/XMLSchema');
+            envelopeSecondRequest.writeAttribute('xmlns', 'http://schemas.xmlsoap.org/soap/envelope/', 'soap', 'http://schemas.xmlsoap.org/soap/envelope/');
+            envelopeSecondRequest.writeStartElement('soap','Body','http://schemas.xmlsoap.org/soap/envelope/');
+            envelopeSecondRequest.writeStartElement(null,'GetData',null);
+            envelopeSecondRequest.writeNamespace('xmlns','https://www.creditsafe.com/');
+            envelopeSecondRequest.writeStartElement(null,'requestXmlStr',null);
+            envelopeSecondRequest.writeCharacters(xmlSecondRequest);
+            envelopeSecondRequest.WriteEndElement();
+            envelopeSecondRequest.WriteEndElement();
+            envelopeSecondRequest.WriteEndElement();
+            envelopeSecondRequest.writeEndElement();
+            string XmlForm = envelopeSecondRequest.getXmlString();
+            envelopeSecondRequest.close();
+
+            
+        
+        
+                    // Envoi de la deuxieme requete
+
+            Http httpSecondRequest = new http();
+            HttpRequest request2 = new HttpRequest();            
+            HttpResponse res2 = new HttpResponse();
+            
+            try{
+                
+            request2.setEndpoint('https://www.creditsafe.fr/getdata/service/CSFRServices.asmx');
+            request2.setHeader('Content-Type','text/xml');
+            request2.setMethod('POST');
+            request2.setTimeout(60000);
+            request2.setBody(XmlForm);
+        
+            res2 = httpSecondRequest.send(request2);
+            }
+            
+            catch (exception SecondRequestFail)
+            {
+                system.debug('Une erreur est survenue lors de la récupération de la réponse API (2eme ping).');
+                process = 4;
+                return process;
+            }
+        
+            // DECLARATION DE TOUS LES CHAMPS CIBLES POUR L'OBJET COMPTES SOCIAUX
+        
+            List<string> stocks = new list<string> ();
+            List<string> Nombre_de_mois = new list<string> ();
+            List<string> status = new list<string>();
+            List<string> legalform = new List<string>();
+            List<string> activitydescription = new List<string>();
+        
+            List<string> dateofbalance = new list<string>();
+            List<string> dateof = new list<string> ();
+        	
+            List<string> code_A1 = new List<string>();
+            List<string> code_BJ3 = new List<string>();
+            List<string> code_BV3 = new List<string>();
+            List<string> code_BX3 = new List<string>();
+            List<string> code_BZ3 = new List<string>();
+            List<string> code_CD3 = new List<string>();
+            List<string> code_CF3 = new List<string>();
+            List<string> code_CJ3 = new List<string>();
+        	List<string> code_AR3 = new List<string>();
+        	List<string> code_AT3 = new List<string>();
+        	List<string> code_AV3 = new List<string>();
+        	List<string> code_AF3 = new List<string>();
+        	List<string> code_AJ3 = new List<string>();
+            List<string> code_DL = new List<string>();
+            List<string> code_DM = new List<string>();
+            List<string> code_DS = new List<string>();
+            List<string> code_DT = new List<string>();
+            List<string> code_DU = new List<string>();
+            List<string> code_DV = new List<string>();
+            List<string> code_DW = new List<string>();
+            List<string> code_DX = new List<string>();
+            List<string> code_DY = new List<string>();
+            List<string> code_DZ = new List<string>();
+            List<string> code_EA = new List<string>();
+            List<string> code_EB = new List<string>();
+            List<string> code_EI = new List<string>();
+            List<string> code_FC = new List<string>();
+            List<string> code_FF = new List<string>();
+            List<string> code_FI = new List<string>();
+            List<string> code_FJ = new List<string>();
+            List<string> code_FK = new List<string>();
+            List<string> code_FL = new List<string>();
+            List<string> code_FM = new List<string>();
+            List<string> code_FN = new List<string>();
+            List<string> code_FP = new List<string>();
+            List<string> code_FR = new List<string>();
+            List<string> code_FS = new List<string>();
+            List<string> code_FT = new List<string>();
+            List<string> code_FU = new List<string>();
+            List<string> code_FV = new List<string>();
+            List<string> code_FW = new List<string>();
+            List<string> code_FX = new List<string>();
+            List<string> code_FY = new List<string>();
+            List<string> code_FZ = new List<string>();
+            List<string> code_GA = new List<string>();
+            List<string> code_GB = new List<string>();
+            List<string> code_GC = new List<string>();
+            List<string> code_GD = new List<string>();
+            List<string> code_GF = new List<string>();
+            List<string> code_GG = new List<string>();
+            List<string> code_GP = new List<string>();
+            List<string> code_GR = new List<string>();
+            List<string> code_GU = new List<string>();
+            List<string> code_HD = new List<string>();
+            List<string> code_HH = new List<string>();
+            List<string> code_HJ = new List<string>();
+            List<string> code_HK = new List<string>();
+            List<string> code_HN = new List<string>();
+            List<string> code_HP = new List<string>();
+            List<string> code_HQ = new List<string>();
+            List<string> code_YP = new List<string>();
+            List<string> code_YQ = new List<string>();
+            List<string> code_YR = new List<string>();
+            List<string> code_YT = new List<string>();
+            List<string> code_YU = new List<string>();
+            List<string> code_ZE = new List<string>();
+            List<string> code_BJ = new List<string>();
+            List<string> code_GE = new List<string>();
+            List<string> code_FQ = new List<string>();
+        	
+             
+            string creditlimit = 'Aucune information';
+            string rating = '-1';
+            string ratingdesc1 = 'Aucune information';
+            string ratingdesc2 = 'Aucune information';
+            string lastjudgementdate = 'Aucune information';
+            string lastccjdate = 'Aucune information';
+            
+            string dataTest = null;
+            string errorSecondRequest = null;
+            integer i=0;
+            integer maxNumberofSocialAccount=0; 
+			string reporttype2 = '0';        
+        
+            
+         if(res2.getStatusCode() == 200){
+            string xmlString2 = res2.getBody();
+
+            string xmlDecode2 = xmlString2.unescapeXml();
+
+
+            XmlStreamReader readerSecondRequest = new xmlstreamreader(xmlDecode2);
+        
+            boolean SafeToGoNextElement2 = true;
+            while(SafeToGoNextElement2)
+            {
+                if(readerSecondRequest.getEventType() == XMLTag.START_ELEMENT){
+                    if (readerSecondRequest.getLocalName() == 'dateofbalance'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        dateof = dataTest.split('/');
+                        dataTest = dateof[2] + '-' + dateof[1] + '-' + dateof[0];
+                        
+                        dateofbalance.add(datatest); 
+                        }
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'lastjudgementdate'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        lastjudgementdate = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'lastccjdate'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        lastccjdate = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'status'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        status.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'activitydescription'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        activitydescription.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'creditlimit'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        creditlimit = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'legalform'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        legalform.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'rating'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        rating = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'ratingdesc1'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        ratingdesc1 = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'ratingdesc2'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        ratingdesc2 = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_A1'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_A1.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_AR3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_AR3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_AT3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_AT3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_AV3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_AV3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_AF3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_AF3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_AJ3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_AJ3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_BJ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_BJ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_BJ3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_BJ3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_BV3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_BV3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_BX3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_BX3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_BZ3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_BZ3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_CF3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_CF3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_CD3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_CD3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_CJ3'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_CJ3.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DL'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DL.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DM'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DM.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DS'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DS.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DT'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DT.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DU'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DU.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DW'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DW.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DV'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DV.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DX'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DX.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DY'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DY.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_DZ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_DZ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_EA'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_EA.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_EB'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_EB.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_EI'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_EI.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FC'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FC.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FF'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FF.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FI'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FI.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FJ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FJ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FK'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FK.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FL'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FL.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FM'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FM.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FN'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FN.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FP'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FP.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FQ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FQ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FR'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FR.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FS'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FS.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FT'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FT.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FU'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FU.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FV'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FV.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FW'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FW.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FX'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FX.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FY'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FY.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_FZ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_FZ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GA'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GA.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GB'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GB.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GC'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GC.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GD'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GD.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GE'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GE.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GF'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GF.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GG'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GG.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GP'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GP.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GR'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GR.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_GU'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_GU.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HD'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HD.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HH'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HH.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HJ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HJ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HK'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HK.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HN'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HN.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HP'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HP.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_HQ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_HQ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_YP'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_YP.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_YQ'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_YQ.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_YR'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_YR.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_YT'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_YT.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_YU'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_YU.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code_ZE'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        code_ZE.add(dataTest);}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'stocks'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        stocks.add(dataTest);}
+                    
+                    else if(readerSecondRequest.getLocalName() == 'code'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        errorSecondRequest = dataTest;}
+                    
+                    
+                    else if(readerSecondRequest.getLocalName() == 'month'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        Nombre_de_mois.add(dataTest);}
+                    
+                    else if(readerSecondRequest.getLocalName() == 'reporttype'){
+                        dataTest = ParsingXML2(readerSecondRequest);
+                        reporttype2 = dataTest;}
+                    
+                       
+                
+                } // IF reader==(XML.STARTELEMENT)
+                
+                
+                if(readerSecondRequest.hasNext()){
+                    readerSecondRequest.next();}
+                else{
+                    SafeToGoNextElement2 = false;
+                    break;
+                }
+                    
+                } // FIN boucle while
+            
+            if(string.isNotEmpty(errorSecondRequest)){
+                system.debug('ERROR : Une erreur a été renvoyé lors de la réception de la réponse de la deuxieme réponse XML. Code erreur : ' + errorSecondRequest);
+                process = 7;
+                return process;
+            }
+             
+             boolean resultReporttype2 = false;
+             resultReporttype2 = reporttype2.contains('Error');
+             
+             if(resultReporttype2 == true)
+             {
+                 system.debug('ERROR : Une erreur a été renvoyé lors de la réception de la réponse de la deuxieme réponse XML. Code erreur : ' + errorSecondRequest);
+                 process = 7;
+                 return process;
+             }
+             
+        }//IF get status code deuxieme requete
+        
+            else{system.debug('Erreur lors que la connexion à CSFR (deuxieme requete)');
+                process = 5;
+                return process;}              
+
+
+             
+            string LimiteDeCredit = creditlimit + ' €';
+            
+            i = dateofbalance.size() -1;
+            
+            string realStatus = 'Aucune information';
+        	if(string.isNotEmpty(status[0]))
+               {realStatus = status[0];}
+        	string realActivityDescription = 'Aucune information';
+            if(string.isNotEmpty(activitydescription[0]))
+               {realActivityDescription = activitydescription[0];}
+        	string realLegalForm = 'Aucune information';
+            if(string.isNotEmpty(legalform[0]))   
+               {realLegalForm = legalform[0];}
+                
+            maxNumberofSocialAccount = 10;    
+            while(i >= 0)
+            {
+               if(maxNumberofSocialAccount >= i){
+               try{
+            Comptes_sociaux__c newSocialAccount = new Comptes_sociaux__c(Piste__c = newList[1], annualaccount__c = Date.valueof(dateofbalance[i]),
+                                                                         stocks__c = Decimal.valueof(stocks[i]),
+                                                                         Name = (companyName + ' - ' + string.valueof(date.valueof(dateofbalance[i]))),
+                                                                         code_A1__c = Decimal.valueof(code_A1[i]), code_BJ3__c = Decimal.valueof(code_BJ3[i]),
+                                                                         code_BX3__c = Decimal.valueof(code_BX3[i]), code_BV3__c = Decimal.valueof(code_BV3[i]),
+                                                                         code_BZ3__c = Decimal.valueof(code_BZ3[i]), code_CD3__c = Decimal.valueof(code_CD3[i]),
+                                                                         code_CF3__c = Decimal.valueof(code_CF3[i]), code_CJ3__c = Decimal.valueof(code_CJ3[i]),
+                                                                         code_DL__c = Decimal.valueof(code_DL[i]), code_DM__c = Decimal.valueof(code_DM[i]),
+                                                                         code_DS__c = Decimal.valueof(code_DS[i]), code_DT__c = Decimal.valueof(code_DT[i]), 
+                                                                         code_DU__c = Decimal.valueof(code_DU[i]), code_DW__c = Decimal.valueof(code_DW[i]), 
+                                                                         code_DV__c = Decimal.valueof(code_DV[i]), code_DX__c = Decimal.valueof(code_DX[i]), 
+                                                                         code_DY__c = Decimal.valueof(code_DY[i]), code_DZ__c = Decimal.valueof(code_DZ[i]), 
+                                                                         code_EA__c = Decimal.valueof(code_EA[i]), code_EB__c = Decimal.valueof(code_EB[i]), 
+                                                                         code_EI__c = Decimal.valueof(code_EI[i]), code_FC__c = Decimal.valueof(code_FC[i]), 
+                                                                         code_FF__c = Decimal.valueof(code_FF[i]), code_FI__c = Decimal.valueof(code_FI[i]), 
+                                                                         code_FJ__c = Decimal.valueof(code_FJ[i]), code_FK__c = Decimal.valueof(code_FK[i]), 
+                                                                         code_FL__c = Decimal.valueof(code_FL[i]), code_FM__c = Decimal.valueof(code_FM[i]), 
+                                                                         code_FN__c = Decimal.valueof(code_FN[i]), code_FP__c = Decimal.valueof(code_FP[i]), 
+                                                                         code_FR__c = Decimal.valueof(code_FR[i]), code_FS__c = Decimal.valueof(code_FS[i]), 
+                                                                         code_FT__c = Decimal.valueof(code_FT[i]), code_FU__c = Decimal.valueof(code_FU[i]), 
+                                                                         code_FV__c = Decimal.valueof(code_FV[i]), code_FW__c = Decimal.valueof(code_FW[i]), 
+                                                                         code_FX__c = Decimal.valueof(code_FX[i]), code_FY__c = Decimal.valueof(code_FY[i]), 
+                                                                         code_FZ__c = Decimal.valueof(code_FZ[i]), code_GA__c = Decimal.valueof(code_GA[i]), 
+                                                                         code_GB__c = Decimal.valueof(code_GB[i]), code_GC__c = Decimal.valueof(code_GC[i]), 
+                                                                         code_GD__c = Decimal.valueof(code_GD[i]), code_GF__c = Decimal.valueof(code_GF[i]), 
+                                                                         code_GG__c = Decimal.valueof(code_GG[i]), code_GP__c = Decimal.valueof(code_GP[i]), 
+                                                                         code_GR__c = Decimal.valueof(code_GR[i]), code_GU__c = Decimal.valueof(code_GU[i]), 
+                                                                         code_HD__c = Decimal.valueof(code_HD[i]), code_HH__c = Decimal.valueof(code_HH[i]), 
+                                                                         code_HJ__c = Decimal.valueof(code_HJ[i]), code_HK__c = Decimal.valueof(code_HK[i]), 
+                                                                         code_HN__c = Decimal.valueof(code_HN[i]), code_YP__c = Decimal.valueof(code_YP[i]),
+                                                                         code_HP__c = Decimal.valueof(code_HP[i]),  code_HQ__c = Decimal.valueof(code_HQ[i]),
+                                                                         code_YQ__c = Decimal.valueof(code_YQ[i]), code_YR__c = Decimal.valueof(code_YR[i]),
+                                                                         code_YT__c = Decimal.valueof(code_YT[i]), code_BJ__c = Decimal.valueof(code_BJ[i]),
+                                                                         code_GE__c = Decimal.valueof(code_GE[i]), code_FQ__c = Decimal.valueof(code_FQ[i]),
+                                                                         code_ZE__c = Decimal.valueof(code_ZE[i]), code_YU__c = Decimal.valueof(code_YU[i]),
+                                                                         code_AR3__c = Decimal.valueof(code_AR3[i]), code_AT3__c = Decimal.valueof(code_AT3[i]),
+                                                                         code_AV3__c = Decimal.valueof(code_AV3[i]), code_AF3__c = Decimal.valueof(code_AF3[i]), code_AJ3__c = Decimal.valueof(code_AJ3[i]),
+                                                                         Nombre_de_mois__c = Decimal.valueof(Nombre_de_mois[i]), Origine_du_compte_social__c = 'CreditSafe');
+                                                                         
+            
+            insert newSocialAccount;
+            system.debug('c\'est inséré');
+                
+            }
+        
+        catch (exception e) {
+                System.debug('Unexpected Error1 (comptes social pas généré)' + e.getMessage());
+            }
+                i--;
+                } // If numberMaxSocialAccount > i     
+        } // boucle while
+      
+                //UPDATE PISTE
+                
+            try{
+                Lead[] newLead = [Select Lead.FirstName from Lead where Lead.ID = :newList[1] LIMIT 1];
+                
+                Lead Piste = newLead[0];
+                piste.Code_NAF__c = activitycode;
+                piste.SIRET__c = siret;
+                piste.Company = companyName;
+                piste.Description_activite__c = realActivityDescription;
+                piste.Statut_de_l_entreprise__c = realStatus;
+                piste.Forme_juridique__c = realLegalForm;
+                
+                
+                update piste;
+                system.debug('piste bien updatée');
+            } 
+            catch (exception d){
+             	system.debug('Unexpected Error2 (piste pas bien insérée)' + d.getMessage());
+                process = 1;
+                return process;
+            } 
+                
+                
+                try{
+                    Lead[] newLead = [Select Lead.FirstName from Lead where Lead.ID = :newList[1] LIMIT 1];
+                    
+                    Lead piste = newLead[0];
+                    piste.Phone = telephone;
+                    piste.Note_Creditsafe__c = Decimal.valueof(rating);
+                    piste.Limite_de_credit_Creditsafe__c = LimiteDeCredit;
+                    piste.Description_note_Creditsafe_1__c = ratingdesc1;
+                    piste.Description_note_Creditsafe_2__c = ratingdesc2;
+                    piste.Date_dernier_jugement__c = lastjudgementdate;
+                    piste.Date_dernier_privilege__c = lastccjdate;
+
+                    
+                    update piste;
+                    system.debug('2eme update de piste bien effectué');
+                }
+                catch (exception p)
+                {
+                    system.debug('2eme update de piste pas passé ( pas très grave pour le moment)');
+                }
+                
+                
+                
+
+       
+        return process;
+    }// FIN
+            
+    
+    
+       
+    
+    // PARSING XML2 (utilisé)
+    global static string ParsingXML2(XmlStreamReader reader)
+    {
+        string test;
+        string data;
+        string all;
+        list<string> donnees;
+        
+        boolean SafeToGoNextElement = true;
+        while (SafeToGoNextElement) {
+            if (reader.getEventType() == XMLTag.END_ELEMENT) {
+                break;
+            data = 'null';} 
+            if (reader.isStartElement())
+            {  test = reader.getlocalname();}
+            else if (reader.hasText()) {
+                 data = reader.getText();}
+            if(reader.hasNext()) {
+                reader.next();}
+            else {
+                SafeToGoNextElement = false;
+                break;}
+        }
+        return data; 
+        }
+    
+    
+}
